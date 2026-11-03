@@ -216,6 +216,10 @@ button:focus-visible,input:focus-visible,.seg input:focus-visible + label,.chip 
 .wide.ok{background:var(--ok);color:var(--on-solid)}
 .wide.ng{background:var(--ng);color:var(--on-solid)}
 .myturn{display:grid;justify-items:center;gap:8px;text-align:center}
+.deck-answer{display:grid;justify-items:center;gap:2px;text-align:center;width:100%;min-width:0}
+.deck-answer .a-main{font-size:clamp(24px,7vw,32px)}
+.deck-answer .head{margin:0;font-size:13px;font-weight:700;letter-spacing:.08em;color:var(--muted)}
+.deck-answer .head.ok{color:var(--ok)}
 .myturn .big{font-family:var(--f-display);font-size:clamp(28px,8vw,38px);line-height:1.2;color:var(--ink)}
 .myturn .lamp{width:22px;height:22px}
 
@@ -1376,7 +1380,10 @@ function renderGame(){
     else if(G.ph === "reading") qt.innerHTML = '<span id="qRead"></span><span class="caret" aria-hidden="true"></span>';
     else if(G.ph === "waiting") qt.innerHTML = '<span id="qRead"></span>';
     else if(G.ph === "answering") qt.innerHTML = esc(q.slice(0, G.a == null ? G.s : G.a));
-    else if(G.ph === "revealed") qt.innerHTML = qWithSlash(q, G.w ? G.a : null);
+    else if(G.ph === "revealed"){
+      qt.innerHTML = qWithSlash(q, G.w ? G.a : null);
+      requestAnimationFrame(() => { try{ const ab = $("#answerBox"); if(!ab.hidden) ab.scrollIntoView({block:"nearest", behavior: matchMedia("(prefers-reduced-motion: reduce)").matches ? "auto" : "smooth"}); }catch(e){} });
+    }
     $("#stage").scrollTop = G.ph === "preroll" ? 0 : $("#stage").scrollTop;
   }
   const rd = document.getElementById("qRead");
@@ -1478,7 +1485,11 @@ function renderDeck(){
     if(isHost){
       html = `<div class="deck-col"><div class="deck-row"><button type="button" class="wide primary" id="nextBtn">${G.n >= G.t - 1 ? "結果発表へ" : "次の問題へ"}</button></div>${undoLink}</div>`;
     } else {
-      html = `<div class="deck-col"><p class="deck-label">司会が次の問題に進むのを待っています</p></div>`;
+      const it2 = QMAP.get(G.q);
+      const okHead = G.rs === "ok";
+      const head = okHead ? (G.w === pid ? "あなたが正解！" : `${esc(nameOf(G, G.w))}さんが正解`)
+        : G.rs === "pass" ? "スキップ" : G.rs === "allwrong" ? "正解者なし" : "時間切れ";
+      html = `<div class="deck-col"><div class="deck-answer"><p class="head${okHead ? " ok" : ""}">${head}　答えは</p><p class="a-main">${esc(it2 ? it2.a : "")}</p></div><p class="deck-label">司会が次の問題に進むのを待っています</p></div>`;
     }
   }
   d.innerHTML = html;
