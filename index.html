@@ -216,6 +216,15 @@ button:focus-visible,input:focus-visible,.seg input:focus-visible + label,.chip 
 .wide.ok{background:var(--ok);color:var(--on-solid)}
 .wide.ng{background:var(--ng);color:var(--on-solid)}
 .myturn{display:grid;justify-items:center;gap:8px;text-align:center}
+.voice-add{display:flex;gap:8px}
+.voice-add input{flex:1;min-width:0;font:inherit;font-size:16px;font-weight:700;padding:10px 12px;border:1px solid var(--line);border-radius:10px;background:var(--panel);color:var(--ink)}
+.voice-add .ghost{width:auto;min-height:44px;padding:0 18px;flex:none}
+.vlist{margin-top:8px}
+.vchip-x{border:0;background:none;color:var(--muted);font-size:18px;line-height:1;padding:0 2px;margin-left:2px}
+.proxy-row{display:flex;flex-wrap:wrap;justify-content:center;gap:8px}
+.proxy{--c:var(--buzz);border:0;border-radius:999px;padding:10px 18px;min-height:46px;background:var(--c);color:var(--on-solid);font-weight:700;font-size:15px;box-shadow:0 4px 0 color-mix(in srgb, var(--c) 62%, #000);touch-action:manipulation;user-select:none;-webkit-user-select:none}
+.proxy:active{transform:translateY(3px);box-shadow:0 1px 0 color-mix(in srgb, var(--c) 62%, #000)}
+.proxy:disabled{background:var(--line);color:var(--muted);box-shadow:none;transform:none}
 .deck-answer{display:grid;justify-items:center;gap:2px;text-align:center;width:100%;min-width:0}
 .deck-answer .a-main{font-size:clamp(24px,7vw,32px)}
 .deck-answer .head{margin:0;font-size:13px;font-weight:700;letter-spacing:.08em;color:var(--muted)}
@@ -322,6 +331,11 @@ button:focus-visible,input:focus-visible,.seg input:focus-visible + label,.chip 
             <li>誤答は−5点で、その問題ではもう押せません。</li>
             <li>キーボードならスペースキーで押せます。司会はOキーで○、Xキーで×。</li>
           </ul>
+          <h2>車で遊ぶとき</h2>
+          <ul>
+            <li>司会の設定で「問題を読み上げる」を選ぶと、司会のスマホが問題文・押した人・答えを声で読み上げます。司会のスマホをカーオーディオにつなぐと、全員に聞こえます。</li>
+            <li>運転中の人はスマホに触らないでください。司会の設定の「スマホなしで参加する人」に名前を入れておくと、その人が「はい！」と言ったときに司会が代わりに押せます。</li>
+          </ul>
           <h2>通信について</h2>
           <ul>
             <li>スマホどうしは、無料で公開されている通信サーバーを経由してつながります。部屋コードを知っている人はだれでも入れるので、名前に個人情報は入れないでください。</li>
@@ -393,6 +407,23 @@ button:focus-visible,input:focus-visible,.seg input:focus-visible + label,.chip 
               <input type="radio" name="hplay" id="hplay-off" value="off"><label for="hplay-off">しない</label>
             </div>
             <p class="hint" style="margin-top:6px">司会の端末は通信の待ち時間がないぶん、少しだけ早く押せます。答えを先に見た問題では、司会は押せなくなります。</p>
+          </fieldset>
+          <fieldset class="field">
+            <legend>問題を読み上げる</legend>
+            <div class="seg">
+              <input type="radio" name="hvoice" id="hvoice-on" value="on"><label for="hvoice-on">読み上げる</label>
+              <input type="radio" name="hvoice" id="hvoice-off" value="off"><label for="hvoice-off">読み上げない</label>
+            </div>
+            <p class="hint" style="margin-top:6px" id="voiceHint">この端末の音声で、問題文・押した人・答えを読み上げます。画面の文字も声に合わせて流れます。車ではこの端末をカーオーディオにつないでください。マナーモードだと音が出ないことがあります。</p>
+          </fieldset>
+          <fieldset class="field">
+            <legend>スマホなしで参加する人</legend>
+            <div class="voice-add">
+              <input id="voiceName" type="text" maxlength="10" autocomplete="off" placeholder="例：運転中のけんた" enterkeyhint="done">
+              <button type="button" class="ghost" id="voiceAdd">追加</button>
+            </div>
+            <ul class="roster vlist" id="voiceList"></ul>
+            <p class="hint" style="margin-top:6px">運転中の人などは画面に触らず、声で「はい！」と言ってもらいます。問題中、司会の画面に出る名前ボタンを司会が代わりに押します。</p>
           </fieldset>
           <p class="hint" id="hostStock"></p>
           <button type="submit" class="start-btn" id="hostStart">ゲームスタート</button>
@@ -629,7 +660,7 @@ const points = (at, len) => 10 + Math.round(10 * (1 - Math.min(1, at / len)));
 let pid = store.get("mq.pid", "");
 if(!/^[a-z0-9]{6,20}$/.test(pid)){ pid = rid(); store.set("mq.pid", pid); }
 let prefs = Object.assign({name:"", sound:false, role:null}, store.get("mq.prefs", {}));
-let HS = Object.assign({sets: SETS.map(s => s.id), count:20, speed:"normal", play:true}, store.get("mq.host", {}));
+let HS = Object.assign({sets: SETS.map(s => s.id), count:20, speed:"normal", play:true, voice:false}, store.get("mq.host", {}));
 HS.sets = (Array.isArray(HS.sets) ? HS.sets : []).filter(id => SETS.some(s => s.id === id));
 if(!HS.sets.length) HS.sets = SETS.map(s => s.id);
 if(![10,20,30].includes(Number(HS.count))) HS.count = 20;
@@ -692,6 +723,7 @@ function onlineIds(){
   const s = new Set();
   for(const p of peersSnap){ const pr = p.presence && p.presence.p; if(pr && typeof pr.i === "string") s.add(pr.i); }
   if(role === "host" && G && G.hp) s.add(pid);
+  if(role === "host" && G && Array.isArray(G.vp)) G.vp.forEach(id => s.add(id));
   if(role === "player") s.add(pid);
   return s;
 }
@@ -745,6 +777,7 @@ function sanitizeG(h){
     lk: Array.isArray(h.lk) ? h.lk.filter(x => typeof x === "string").slice(0, 24) : [],
     r: num(h.r, 1), rs: str(h.rs, 12) || null,
     w: typeof h.w === "string" ? h.w.slice(0, 24) : null, wp: num(h.wp),
+    vp: Array.isArray(h.vp) ? h.vp.filter(x => typeof x === "string").slice(0, MAX_PLAYERS) : [], vo: !!h.vo,
     tk, sp: SPEED[h.sp] ? h.sp : "normal", pl, hp: !!h.hp, hid: str(h.hid, 24), hn: cleanName(str(h.hn)) || "司会", pk: !!h.pk
   };
 }
@@ -980,10 +1013,144 @@ function shareLink(code){
 function setUrlCode(code){ try{ history.replaceState(null, "", shareLink(code)); }catch(e){} }
 window.addEventListener("pagehide", () => { if(room){ try{ room.leave(); }catch(e){} } });
 
+/* ===================== 読み上げ ===================== */
+const TTS = {
+  ok: typeof window.speechSynthesis !== "undefined" && typeof window.SpeechSynthesisUtterance !== "undefined",
+  voice: null, gen: 0, unlocked: false, failed: false, lastCancel: 0, live: new Set(),
+  pick(){
+    if(!this.ok) return;
+    let vs = [];
+    try{ vs = speechSynthesis.getVoices() || []; }catch(e){}
+    const ja = vs.filter(v => /^ja([-_]|$)/i.test(v.lang || ""));
+    this.voice = ja.find(v => /Kyoko|O-ren|Otoya|Google|Siri|Nanami/i.test(v.name)) || ja[0] || null;
+  },
+  rate(){ return ({slow:0.95, normal:1.1, fast:1.3})[G && G.sp] || 1.1; },
+  say(text, h){
+    if(!this.ok || !text) return null;
+    h = h || {};
+    let u;
+    try{ u = new SpeechSynthesisUtterance(text); }catch(e){ return null; }
+    u.lang = "ja-JP"; if(this.voice) u.voice = this.voice; u.rate = this.rate(); u.pitch = 1; u.volume = 1;
+    this.live.add(u);
+    const done = () => this.live.delete(u);
+    u.onstart = () => { if(h.onstart) h.onstart(); };
+    u.onboundary = ev => { if(h.onboundary) h.onboundary(ev); };
+    u.onend = () => { done(); if(h.onend) h.onend(); };
+    u.onerror = ev => { done(); if(h.onerror) h.onerror(ev); };
+    const go = () => { try{ speechSynthesis.speak(u); }catch(e){ if(h.onerror) h.onerror(e); } };
+    if(performance.now() - this.lastCancel < 90) setTimeout(go, 90); else go();
+    return u;
+  },
+  stop(){
+    this.gen++;
+    if(!this.ok) return;
+    try{ speechSynthesis.cancel(); }catch(e){}
+    this.lastCancel = performance.now();
+  },
+  unlock(){
+    if(!this.ok) return;
+    try{ const u = new SpeechSynthesisUtterance(" "); u.volume = 0; u.lang = "ja-JP"; speechSynthesis.speak(u); this.unlocked = true; }catch(e){}
+  }
+};
+if(TTS.ok){ TTS.pick(); try{ speechSynthesis.addEventListener("voiceschanged", () => TTS.pick()); }catch(e){} }
+function voiceOn(){ return role === "host" && !!G && !!G.vo && TTS.ok && !TTS.failed; }
+document.addEventListener("pointerdown", () => {
+  if(role === "host" && G && G.vo && TTS.ok && (!TTS.unlocked || TTS.failed)){ TTS.unlock(); TTS.failed = false; renderAll(); }
+}, true);
+
+/* 句読点ごとに区切って読み、読んだところまで画面の文字を進める */
+function voiceSegments(q, from){
+  const out = []; let start = from;
+  for(let i = from; i < q.length; i++){
+    if("、。，？！?!".includes(q[i])){ out.push([start, i + 1]); start = i + 1; }
+  }
+  if(start < q.length) out.push([start, q.length]);
+  return out;
+}
+function hReadVoice(){
+  if(!G || G.ph !== "reading") return;
+  const it = QMAP.get(G.q); if(!it) return;
+  const q = it.q;
+  const segs = voiceSegments(q, G.s);
+  const gen = ++TTS.gen;
+  const msPerChar = Math.round(150 / TTS.rate());
+  const alive = () => gen === TTS.gen && G && G.ph === "reading";
+  const next = k => {
+    if(!alive()) return;
+    if(k >= segs.length){ hWait(); return; }
+    const [a, b] = segs[k];
+    let started = false, viaBoundary = false;
+    const step = () => {
+      if(!alive()) return;
+      if(!viaBoundary && G.s < b - 1){ G.s++; pub(false); }
+      T.tick = setTimeout(step, msPerChar);
+    };
+    clearTimeout(T.vwd);
+    T.vwd = setTimeout(() => {
+      if(!alive() || started) return;
+      TTS.stop(); TTS.failed = true;
+      hTick();
+    }, 4000);
+    TTS.say(q.slice(a, b), {
+      onstart(){ if(!alive()) return; started = true; clearTimeout(T.vwd); clearTimeout(T.tick); step(); },
+      onboundary(ev){
+        if(!alive() || (ev && ev.name && ev.name !== "word")) return;
+        viaBoundary = true; started = true; clearTimeout(T.vwd);
+        const pos = Math.min(b, a + (ev.charIndex || 0) + Math.max(1, ev.charLength || 1));
+        if(pos > G.s){ G.s = pos; pub(false); }
+      },
+      onend(){ if(!alive()) return; started = true; clearTimeout(T.vwd); clearTimeout(T.tick); if(G.s < b){ G.s = b; pub(false); } next(k + 1); },
+      onerror(){ if(!alive()) return; clearTimeout(T.vwd); clearTimeout(T.tick); TTS.stop(); TTS.failed = true; renderAll(); hTick(); }
+    });
+  };
+  next(0);
+}
+function hResume(){ if(voiceOn()) hReadVoice(); else hTick(); }
+function finalLine(){
+  const rows = G.pl.slice().sort((x, y) => y[2] - x[2]);
+  if(!rows.length) return "結果発表。おつかれさまでした。";
+  const top = rows.filter(r => r[2] === rows[0][2]).map(r => r[1]);
+  return `結果発表。優勝は、${top.join("さんと、")}さん。${rows[0][2]}点でした。`;
+}
+
+/* スマホなしで参加する人（司会が代わりに押す） */
+let voiceKey = "";
+function renderVoiceList(){
+  const ul = document.getElementById("voiceList");
+  if(!ul || !G || role !== "host") return;
+  const vp = (G.vp || []).filter(id => G.pl.some(r => r[0] === id));
+  const key = JSON.stringify(vp.map(id => [id, nameOf(G, id), G.pl.findIndex(r => r[0] === id)]));
+  if(key === voiceKey) return;
+  voiceKey = key;
+  ul.innerHTML = vp.map(id => {
+    const i = G.pl.findIndex(r => r[0] === id), nm = nameOf(G, id);
+    return `<li class="pchip" style="--pc:var(--c${i % 8})"><span class="pdot" aria-hidden="true">${esc(Array.from(nm)[0] || "?")}</span><span class="pname">${esc(nm)}</span><button type="button" class="vchip-x" data-vid="${id}" aria-label="${esc(nm)}を外す">×</button></li>`;
+  }).join("");
+  ul.querySelectorAll(".vchip-x").forEach(b => b.addEventListener("click", () => removeVoicePlayer(b.dataset.vid)));
+}
+function addVoicePlayer(){
+  if(!G || role !== "host") return;
+  const input = $("#voiceName");
+  const name = cleanName(input.value);
+  if(!name){ input.focus(); return; }
+  if(G.pl.length >= MAX_PLAYERS) return;
+  const id = "v" + Math.random().toString(36).slice(2, 10);
+  G.vp = (G.vp || []).concat(id);
+  G.pl.push([id, name, 0, 0, 0]);
+  input.value = "";
+  pub(true); renderVoiceList();
+}
+function removeVoicePlayer(id){
+  if(!G || role !== "host") return;
+  G.vp = (G.vp || []).filter(x => x !== id);
+  G.pl = G.pl.filter(r => r[0] !== id);
+  pub(true); renderVoiceList();
+}
+
 /* ===================== HOST ===================== */
 function hostNew(){
   return {v:1, e:Date.now(), ph:"lobby", n:0, t:0, q:"", s:0, b:null, a:null, lk:[], r:1, rs:null, w:null, wp:0,
-          tk:null, sp:HS.speed, pl:[], hp:!!HS.play, hid:pid, hn: prefs.name || "司会", pk:false};
+          tk:null, sp:HS.speed, pl:[], hp:!!HS.play, hid:pid, hn: prefs.name || "司会", pk:false, vp:[], vo:!!HS.voice};
 }
 function ensureHostRow(){
   if(!G) return;
@@ -1045,6 +1212,9 @@ function hostStartGame(){
   const on = onlineIds();
   G.pl = G.pl.filter(r => on.has(r[0]) || r[0] === pid).map(r => [r[0], r[1], 0, 0, 0]);
   G.hp = !!HS.play; G.sp = HS.speed; G.hn = prefs.name || "司会";
+  G.vp = (G.vp || []).filter(id => G.pl.some(r => r[0] === id));
+  G.vo = !!HS.voice && TTS.ok;
+  if(G.vo){ TTS.failed = false; TTS.unlock(); }
   ensureHostRow();
   G.e = Date.now(); G.n = 0; G.t = LIST.length; G.tk = null;
   holdWake(); ensureAudio();
@@ -1056,9 +1226,10 @@ function hostStartQ(){
   Object.assign(G, {q:id, s:0, b:null, a:null, lk:[], r:1, rs:null, w:null, wp:0, pk:false, ph:"preroll"});
   seen.add(id); store.set("mq.seen", [...seen]);
   pub(true);
+  if(voiceOn()){ TTS.stop(); TTS.say(`第${G.n + 1}問`); }
   T.pre = setTimeout(() => {
     if(!G || G.ph !== "preroll") return;
-    G.ph = "reading"; pub(false); hTick();
+    G.ph = "reading"; pub(false); hResume();
   }, PREROLL_MS);
 }
 let tickPaused = false;
@@ -1086,6 +1257,7 @@ function hostBuzz(id){
   clearT(); undoSnap = null;
   G.ph = "answering"; G.b = id; G.a = G.s;
   lockUntil = performance.now() + 400;
+  if(voiceOn()){ TTS.stop(); TTS.say(nameOf(G, id) + "さん"); }
   pub(true);
   return true;
 }
@@ -1100,13 +1272,15 @@ function hostJudge(ok){
   if(ok){
     LOG.push({q:G.q, w:G.b, a:G.a, wr:G.lk.slice()});
     Object.assign(G, {w:G.b, wp:pts, rs:"ok", b:null, ph:"revealed"});
+    if(voiceOn()){ TTS.stop(); TTS.say("正解！"); }
     pub(true);
     return;
   }
   G.lk.push(G.b); G.b = null; G.r++;
+  if(voiceOn()){ TTS.stop(); TTS.say("不正解"); }
   if(eligible().length === 0){ hostReveal("allwrong", true); return; }
   if(G.s >= q.q.length){ hWait(); }
-  else { G.ph = "reading"; pub(true); T.tick = setTimeout(hTick, 700); }
+  else { G.ph = "reading"; pub(true); T.tick = setTimeout(hResume, 700); }
 }
 function hostReveal(reason, keepUndo){
   if(!G) return;
@@ -1114,11 +1288,12 @@ function hostReveal(reason, keepUndo){
   LOG.push({q:G.q, w:null, a:null, wr:G.lk.slice()});
   Object.assign(G, {ph:"revealed", rs:reason, w:null, b:null});
   lockUntil = performance.now() + 350;
+  if(voiceOn()){ if(reason !== "allwrong") TTS.stop(); const it = QMAP.get(G.q); if(it) TTS.say("正解は、" + it.a); }
   pub(true);
 }
 function hostUndo(){
   if(!undoSnap) return;
-  clearT();
+  clearT(); TTS.stop();
   const s = JSON.parse(undoSnap); undoSnap = null;
   const k = G.tk ? G.tk.k : 0;
   G = s.G; LOG.length = s.log;
@@ -1130,16 +1305,16 @@ function hostNext(){
   if(!G) return;
   undoSnap = null;
   G.n++;
-  if(G.n >= G.t){ clearT(); G.ph = "final"; G.q = ""; pub(true); return; }
+  if(G.n >= G.t){ clearT(); G.ph = "final"; G.q = ""; if(voiceOn()){ TTS.stop(); TTS.say(finalLine()); } pub(true); return; }
   hostStartQ();
 }
 function hostEndGame(){
-  clearT(); undoSnap = null;
+  clearT(); undoSnap = null; TTS.stop();
   if(LOG.length){ G.t = LOG.length; G.ph = "final"; G.q = ""; }
   else { G.ph = "lobby"; }
   pub(true);
 }
-function hostToLobby(){ clearT(); undoSnap = null; G.ph = "lobby"; G.q = ""; G.tk = null; pub(true); }
+function hostToLobby(){ clearT(); undoSnap = null; TTS.stop(); G.ph = "lobby"; G.q = ""; G.tk = null; pub(true); }
 
 function becomeHost(resume){
   const name = cleanName($("#nameInput").value) || prefs.name || "司会";
@@ -1162,7 +1337,7 @@ function becomeHost(resume){
   fillHostForm();
 }
 function stopHosting(){
-  clearT(); setPresence({h:null}); leaveRoom();
+  clearT(); TTS.stop(); setPresence({h:null}); leaveRoom();
   role = null; G = null; prefs.role = null; savePrefs();
   releaseWake(); renderAll(); renderConn();
 }
@@ -1253,7 +1428,7 @@ function rosterHTML(g, opts){
       role === "host" && !on.has(id) ? "is-off" : ""
     ].filter(Boolean).join(" ");
     const initial = Array.from(name)[0] || "?";
-    return `<li class="pchip ${cls}" style="--pc:var(--c${i % 8})"><span class="pdot" aria-hidden="true">${esc(initial)}</span><span class="pname">${esc(name)}${id === pid ? "<small>あなた</small>" : ""}${id === g.hid ? "<small>司会</small>" : ""}</span>${opts.game ? `<span class="psc">${sc}</span>` : ""}${opts.game && g.lk.includes(id) ? '<span class="px" aria-label="誤答">×</span>' : ""}</li>`;
+    return `<li class="pchip ${cls}" style="--pc:var(--c${i % 8})"><span class="pdot" aria-hidden="true">${esc(initial)}</span><span class="pname">${esc(name)}${id === pid ? "<small>あなた</small>" : ""}${id === g.hid ? "<small>司会</small>" : ""}${(g.vp || []).includes(id) ? "<small>スマホなし</small>" : ""}</span>${opts.game ? `<span class="psc">${sc}</span>` : ""}${opts.game && g.lk.includes(id) ? '<span class="px" aria-label="誤答">×</span>' : ""}</li>`;
   }).join("");
 }
 
@@ -1290,6 +1465,7 @@ function renderLobby(){
       : roomState === "off" ? "通信サーバーにつながれないため、この端末だけで遊ぶ形になります。" : "通信サーバーに接続しています。";
     renderShare();
     updateHostStock();
+    renderVoiceList();
     const saved = loadHost();
     const rb = $("#resumeBox");
     if(saved && saved.G.e !== G.e && !["lobby","final"].includes(saved.G.ph)){
@@ -1317,7 +1493,9 @@ function fillHostForm(){
     `<span class="chip"><input type="checkbox" id="set-${s.id}" value="${s.id}"${HS.sets.includes(s.id) ? " checked" : ""}><label for="set-${s.id}">${esc(s.name)}<small>${counts[s.id] || 0}問</small></label></span>`
   ).join("");
   const pick = (n, v) => { const el = document.querySelector(`input[name="${n}"][value="${v}"]`); if(el) el.checked = true; };
-  pick("hcount", String(HS.count)); pick("hspeed", HS.speed); pick("hplay", HS.play ? "on" : "off");
+  pick("hcount", String(HS.count)); pick("hspeed", HS.speed); pick("hplay", HS.play ? "on" : "off"); pick("hvoice", HS.voice ? "on" : "off");
+  if(!TTS.ok){ $("#hvoice-on").disabled = true; $("#voiceHint").textContent = "このブラウザは読み上げに対応していません。"; }
+  voiceKey = ""; renderVoiceList();
   updateHostStock();
 }
 function readHostForm(){
@@ -1326,6 +1504,7 @@ function readHostForm(){
   HS.count = Number((f.querySelector('input[name="hcount"]:checked') || {}).value || 20);
   HS.speed = (f.querySelector('input[name="hspeed"]:checked') || {}).value || "normal";
   HS.play = ((f.querySelector('input[name="hplay"]:checked') || {}).value || "on") === "on";
+  HS.voice = ((f.querySelector('input[name="hvoice"]:checked') || {}).value || "off") === "on" && TTS.ok;
   store.set("mq.host", HS);
 }
 function updateHostStock(){
@@ -1368,6 +1547,7 @@ function renderGame(){
   const banner = $("#gameBanner");
   if(!isHost && hostGone){ banner.hidden = false; banner.textContent = "司会との接続が切れています。司会がページを開き直すと再開します。"; }
   else if(roomState === "wait"){ banner.hidden = false; banner.textContent = "再接続しています。"; }
+  else if(isHost && G.vo && TTS.failed){ banner.hidden = false; banner.textContent = "読み上げが止まっています。画面のどこかをタップすると、次から読み上げます。"; }
   else banner.hidden = true;
 
   // board
@@ -1444,13 +1624,18 @@ function renderDeck(){
   const ph = G.ph;
   const lockedMe = G.lk.includes(pid);
   const hostCanBuzz = isHost && G.hp && !lockedMe && !G.pk;
-  const key = [ph, role, lockedMe, pressedThisRound(), G.b === pid, G.n, G.r, G.pk, !!undoSnap, hostGone, G.n >= G.t - 1, hostCanBuzz, G.b].join("|");
+  const key = [ph, role, lockedMe, pressedThisRound(), G.b === pid, G.n, G.r, G.pk, !!undoSnap, hostGone, G.n >= G.t - 1, hostCanBuzz, G.b, JSON.stringify(G.vp || []), G.lk.length].join("|");
   if(key === lastDeckKey) return;
   lastDeckKey = key;
   const d = $("#deckInner");
   const myColor = colorOf(G, pid);
   const undoLink = isHost && undoSnap ? `<div class="deck-sub"><button type="button" class="linkbtn" id="undoBtn">直前の判定を取り消す</button></div>` : "";
   let html = "";
+  const proxies = isHost ? (G.vp || []).filter(id => G.pl.some(r => r[0] === id)) : [];
+  const proxyRow = proxies.length ? `<p class="deck-label">声で「はい！」と言った人</p><div class="proxy-row">${proxies.map(id => {
+    const i = G.pl.findIndex(r => r[0] === id), locked = G.lk.includes(id);
+    return `<button type="button" class="proxy" data-vid="${id}" style="--c:var(--c${i % 8})"${locked || ph === "preroll" ? " disabled" : ""}>${esc(nameOf(G, id))}${locked ? "（お休み）" : ""}</button>`;
+  }).join("")}</div>` : "";
 
   if(ph === "preroll" || ph === "reading" || ph === "waiting"){
     if(isHost){
@@ -1458,9 +1643,9 @@ function renderDeck(){
         html = `<div class="deck-col"><div class="deck-row">
           <button type="button" class="passbtn" id="passBtn">スキップ</button>
           <button type="button" class="buzz" id="buzzBtn" style="--c:${myColor}" ${hostCanBuzz && ph !== "preroll" ? "" : "disabled"} aria-label="早押しボタン">${hostCanBuzz ? "押す" : "お休み"}</button>
-          <span class="spacer" aria-hidden="true"></span></div>${undoLink}</div>`;
+          <span class="spacer" aria-hidden="true"></span></div>${proxyRow}${undoLink}</div>`;
       } else {
-        html = `<div class="deck-col"><p class="deck-label">だれかが押すのを待っています</p><div class="deck-row"><button type="button" class="wide primary" id="passBtn">スキップして答えを出す</button></div>${undoLink}</div>`;
+        html = `<div class="deck-col"><p class="deck-label">だれかが押すのを待っています</p><div class="deck-row"><button type="button" class="wide primary" id="passBtn">スキップして答えを出す</button></div>${proxyRow}${undoLink}</div>`;
       }
     } else {
       const pressed = pressedThisRound();
@@ -1503,6 +1688,11 @@ function bindDeck(){
     b.addEventListener("pointerdown", e => { if(e.button > 0) return; e.preventDefault(); go(); });
     b.addEventListener("click", e => { if(e.detail === 0) go(); });
   }
+  document.querySelectorAll("#deckInner .proxy").forEach(pb => {
+    const go = () => { if(!pb.disabled) hostBuzz(pb.dataset.vid); };
+    pb.addEventListener("pointerdown", e => { if(e.button > 0) return; e.preventDefault(); go(); });
+    pb.addEventListener("click", e => { if(e.detail === 0) go(); });
+  });
   const on = (id, fn) => { const el = document.getElementById(id); if(el) el.addEventListener("click", fn); };
   on("passBtn", () => { if(G && ["preroll","reading","waiting"].includes(G.ph)) hostReveal("pass"); });
   on("okBtn", guarded(() => hostJudge(true)));
@@ -1581,8 +1771,10 @@ document.querySelectorAll('input[name="sound"]').forEach(r => r.addEventListener
   prefs.sound = (document.querySelector('input[name="sound"]:checked') || {}).value === "on"; savePrefs();
   if(prefs.sound){ ensureAudio(); sfx("buzz"); }
 }));
-$("#hostForm").addEventListener("change", () => { readHostForm(); updateHostStock(); if(G && role === "host" && G.ph === "lobby"){ G.hp = HS.play; G.sp = HS.speed; ensureHostRow(); pub(false); } });
-$("#hostForm").addEventListener("submit", e => { e.preventDefault(); hostStartGame(); });
+$("#hostForm").addEventListener("change", () => { readHostForm(); updateHostStock(); if(G && role === "host" && G.ph === "lobby"){ G.hp = HS.play; G.sp = HS.speed; G.vo = !!HS.voice; ensureHostRow(); pub(false); } });
+$("#hostForm").addEventListener("submit", e => { e.preventDefault(); if(document.activeElement && document.activeElement.id === "voiceName"){ addVoicePlayer(); return; } hostStartGame(); });
+$("#voiceAdd").addEventListener("click", () => addVoicePlayer());
+$("#voiceName").addEventListener("keydown", e => { if(e.key === "Enter"){ e.preventDefault(); addVoicePlayer(); } });
 $("#lobbyLeave").addEventListener("click", () => { if(role === "host") stopHosting(); else leavePlayer(); });
 $("#finalLeave").addEventListener("click", () => { if(role === "host") stopHosting(); else leavePlayer(); });
 $("#gameQuit").addEventListener("click", () => {
@@ -1614,7 +1806,7 @@ document.addEventListener("keydown", e => {
 document.addEventListener("visibilitychange", () => {
   if(document.hidden) return;
   if(role) holdWake();
-  if(role === "host" && G && G.ph === "reading" && tickPaused){ tickPaused = false; clearTimeout(T.tick); T.tick = setTimeout(hTick, 400); }
+  if(role === "host" && G && G.ph === "reading" && tickPaused){ tickPaused = false; clearTimeout(T.tick); T.tick = setTimeout(hResume, 400); }
 });
 
 /* ===================== boot ===================== */

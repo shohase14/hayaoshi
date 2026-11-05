@@ -13,6 +13,8 @@
 - 進行フェーズ: `lobby → preroll → reading → waiting → answering → revealed → final`
 - 主な定数: 参加上限 `MAX_PLAYERS = 12`、読み上げ速度 `SPEED`、待ち時間 `PREROLL_MS` / `GRACE_MS` / `ANSWER_MS`。
 - 端末ごとの設定は localStorage（キーは `mq.` で始まる）。出題済みの問題IDは `mq.seen` に残る。
+- 読み上げ: 司会の設定で「問題を読み上げる」をオンにすると、司会端末の Web Speech API（`speechSynthesis`）で問題文を句読点ごとに読み、画面の文字を読み上げに合わせて進める（`hReadVoice`）。読み上げが始まらないときは文字だけの進行（`hTick`）に切り替わる。
+- スマホなしで参加する人（運転中の人など）は `G.vp` に入り、司会の画面に出る名前ボタンで司会が代わりに押す。
 
 ## 問題データ
 `const SETS = [...]` にジャンルごとにまとまっている。ジャンル: 地理・旅 / 歴史 / 科学 / 生き物 / ことば / 食 / スポーツ / 文化・芸術 / 経済 / 雑学 / 新潟 / サッカー / 平成の思い出。
